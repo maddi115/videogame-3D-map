@@ -1,3 +1,5 @@
+import { BalanceManager } from '../economics/BalanceManager.js';
+
 export class InputHandler {
     constructor(map, grid, player, territoryManager) {
         this.map = map;
@@ -38,13 +40,12 @@ export class InputHandler {
             dir.y = dy > 0 ? 1 : -1;
         }
 
-        // Expand entire blob with smoothing
         const newCells = this.expandBlobSmooth(dir, 2);
         const cost = this.territoryManager.calculateCaptureCost(newCells, this.player.id);
         
-        if (this.player.balance >= cost) {
+        if (BalanceManager.validateAffordable(this.player, cost)) {
             this.territoryManager.captureTerritory(newCells, this.player.id);
-            this.player.balance -= cost;
+            BalanceManager.deductExpansionCost(this.player, cost);
         }
     }
 
@@ -52,22 +53,18 @@ export class InputHandler {
         const newCells = [];
         const cellSet = new Set();
 
-        // For each owned cell, expand it in the direction
         this.grid.cells.forEach((cell, key) => {
             if (cell.owner === this.player.id) {
                 const [x, y] = key.split(',').map(Number);
                 
-                // Expand in direction with a small spread perpendicular
                 for (let depth = 1; depth <= layers; depth++) {
                     for (let spread = -1; spread <= 1; spread++) {
                         let newX, newY;
                         
                         if (dir.x !== 0) {
-                            // Horizontal expansion
                             newX = x + (dir.x * depth);
                             newY = y + spread;
                         } else {
-                            // Vertical expansion
                             newX = x + spread;
                             newY = y + (dir.y * depth);
                         }
@@ -145,9 +142,9 @@ export class InputHandler {
                 const last = trail[trail.length - 1];
                 if (this.grid.isValidStart(last.x, last.y, this.player.id)) {
                     const cost = this.territoryManager.calculateCaptureCost(trail, this.player.id);
-                    if (this.player.balance >= cost) {
+                    if (BalanceManager.validateAffordable(this.player, cost)) {
                         this.territoryManager.captureTerritory(trail, this.player.id);
-                        this.player.balance -= cost;
+                        BalanceManager.deductExpansionCost(this.player, cost);
                     }
                 }
             }

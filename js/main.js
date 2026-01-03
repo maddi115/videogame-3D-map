@@ -54,6 +54,9 @@ const startEngine = () => {
             return bot;
         });
 
+        // Set all entities for economic calculations
+        territoryManager.setEntities([player, ...bots]);
+
         // Initialize Specialized Managers
         const orchestrator = new GameStateOrchestrator(territoryManager, player, bots, grid);
         orchestrator.startHeartbeat(100);

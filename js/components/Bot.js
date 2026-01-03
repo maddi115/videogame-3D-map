@@ -1,3 +1,5 @@
+import { BalanceManager } from '../economics/BalanceManager.js';
+
 export class Bot {
     constructor(id, name, color, startX, startY) {
         this.id = id;
@@ -12,25 +14,83 @@ export class Bot {
 
     update(grid, territoryManager) {
         if (!this.expanding && Math.random() < 0.05) {
-            const brush = grid.getBrushCells(this.currentPos.x, this.currentPos.y, 1);
-            this.expanding = true;
-            this.trailArray = [...brush];
+            this.performBlobExpansion(grid, territoryManager);
         }
-        if (this.expanding) {
-            const directions = [[1,0], [-1,0], [0,1], [0,-1]];
-            const dir = directions[Math.floor(Math.random() * directions.length)];
-            this.currentPos.x += dir[0];
-            this.currentPos.y += dir[1];
-            const brush = grid.getBrushCells(this.currentPos.x, this.currentPos.y, 1);
-            brush.forEach(cell => {
-                if (!this.trailArray.some(t => t.x === cell.x && t.y === cell.y)) {
-                    this.trailArray.push(cell);
-                }
-            });
-            if (this.trailArray.length > 50) {
-                this.expanding = false;
+    }
+
+    performBlobExpansion(grid, territoryManager) {
+        const bounds = this.getTerritoryBounds(grid);
+        if (!bounds) return;
+
+        const directions = [
+            { x: 1, y: 0 },
+            { x: -1, y: 0 },
+            { x: 0, y: 1 },
+            { x: 0, y: -1 }
+        ];
+        const dir = directions[Math.floor(Math.random() * directions.length)];
+
+        const newCells = this.expandBlobSmooth(grid, dir, 2);
+        const cost = territoryManager.calculateCaptureCost(newCells, this.id);
+
+        if (BalanceManager.validateAffordable(this, cost) && newCells.length > 0) {
+            territoryManager.captureTerritory(newCells, this.id);
+            BalanceManager.deductExpansionCost(this, cost);
+        }
+    }
+
+    getTerritoryBounds(grid) {
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+        let found = false;
+
+        grid.cells.forEach((cell, key) => {
+            if (cell.owner === this.id) {
+                const [x, y] = key.split(',').map(Number);
+                minX = Math.min(minX, x);
+                maxX = Math.max(maxX, x);
+                minY = Math.min(minY, y);
+                maxY = Math.max(maxY, y);
+                found = true;
             }
-        }
+        });
+
+        return found ? { minX, maxX, minY, maxY } : null;
+    }
+
+    expandBlobSmooth(grid, dir, layers) {
+        const newCells = [];
+        const cellSet = new Set();
+
+        grid.cells.forEach((cell, key) => {
+            if (cell.owner === this.id) {
+                const [x, y] = key.split(',').map(Number);
+
+                for (let depth = 1; depth <= layers; depth++) {
+                    for (let spread = -1; spread <= 1; spread++) {
+                        let newX, newY;
+
+                        if (dir.x !== 0) {
+                            newX = x + (dir.x * depth);
+                            newY = y + spread;
+                        } else {
+                            newX = x + spread;
+                            newY = y + (dir.y * depth);
+                        }
+
+                        const targetCell = grid.getCell(newX, newY);
+                        const cellKey = `${newX},${newY}`;
+
+                        if ((targetCell.owner === null || targetCell.owner === this.id) && !cellSet.has(cellKey)) {
+                            cellSet.add(cellKey);
+                            newCells.push({ x: newX, y: newY });
+                        }
+                    }
+                }
+            }
+        });
+
+        return newCells;
     }
 
     getTrail() { return this.trailArray; }

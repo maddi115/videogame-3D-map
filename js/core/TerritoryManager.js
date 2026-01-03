@@ -1,8 +1,13 @@
+import { CostCalculator } from '../economics/CostCalculator.js';
+
 export class TerritoryManager {
     constructor(grid) {
         this.grid = grid;
-        this.EMPTY_COST = 2;
-        this.ENEMY_COST = 10;
+        this.allEntities = []; // Will be set from outside
+    }
+
+    setEntities(entities) {
+        this.allEntities = entities;
     }
 
     initializeTerritory(centerX, centerY, ownerId, radius = 5) {
@@ -17,18 +22,8 @@ export class TerritoryManager {
         return this.grid.isValidStart(x, y, ownerId);
     }
 
-    calculateCaptureCost(trail, ownerId) {
-        let cost = 0;
-        trail.forEach(pos => {
-            const cell = this.grid.getCell(pos.x, pos.y);
-            if (cell.owner === null) {
-                cost += this.EMPTY_COST;
-            } else if (cell.owner !== ownerId) {
-                cost += this.ENEMY_COST;
-            }
-            // Own territory costs nothing
-        });
-        return cost;
+    calculateCaptureCost(trail, attackerId) {
+        return CostCalculator.calculateTotalCaptureCost(trail, attackerId, this.grid, this.allEntities);
     }
 
     captureTerritory(trail, ownerId) {
