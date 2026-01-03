@@ -10,6 +10,7 @@ import { CameraControl } from './utils/CameraControl.js';
 // Modular Managers
 import { GameStateOrchestrator } from './core/engine/GameStateOrchestrator.js';
 import { LayerFactory } from './map/LayerFactory.js';
+import { RenderLoop } from './rendering/RenderLoop.js';
 
 // Modular Disablers
 import { disableDoubleClickZoom } from './utils/disabled/NoDoubleClickZoom.js';
@@ -61,6 +62,10 @@ const startEngine = () => {
 
         new InputHandler(map, grid, player, territoryManager);
         new GameLoop(territoryManager, [player], bots).start();
+
+        // Start continuous rendering
+        const renderLoop = new RenderLoop(map, 60);
+        renderLoop.start();
     });
 };
 startEngine();
