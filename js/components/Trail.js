@@ -14,7 +14,8 @@ export class Trail {
                 if (this.meshes.has(entity.id)) {
                     const m = this.meshes.get(entity.id);
                     this.scene.remove(m);
-                    m.dispose();
+                    m.geometry.dispose();
+                    m.material.dispose();
                     this.meshes.delete(entity.id);
                 }
                 return;
@@ -22,14 +23,19 @@ export class Trail {
 
             let mesh = this.meshes.get(entity.id);
             if (!mesh || mesh.count !== trail.length) {
-                if (mesh) { this.scene.remove(mesh); mesh.dispose(); }
+                if (mesh) { 
+                    this.scene.remove(mesh); 
+                    mesh.geometry.dispose(); 
+                    mesh.material.dispose(); 
+                }
                 const geometry = new THREE.BoxGeometry(1, 1, 1);
-                const material = new THREE.MeshPhongMaterial({ 
+                const material = new THREE.MeshBasicMaterial({ 
                     color: entity.color, 
                     transparent: true, 
-                    opacity: 0.7 
+                    opacity: 0.3 
                 });
                 mesh = new THREE.InstancedMesh(geometry, material, trail.length);
+                mesh.frustumCulled = false;
                 this.scene.add(mesh);
                 this.meshes.set(entity.id, mesh);
             }
@@ -39,8 +45,7 @@ export class Trail {
                 const { lng, lat } = this.grid.gridToLngLat(point.x, point.y);
                 const merc = maplibregl.MercatorCoordinate.fromLngLat([lng, lat], 0);
                 const scale = merc.meterInMercatorCoordinateUnits() * this.grid.cellSizeMeters;
-                const height = 20 * scale; // Trail is slightly taller to show "activity"
-                
+                const height = 1.6 * scale;
                 dummy.position.set(merc.x, merc.y, merc.z + height / 2);
                 dummy.scale.set(scale, scale, height);
                 dummy.updateMatrix();
