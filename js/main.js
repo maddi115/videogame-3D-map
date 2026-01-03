@@ -8,6 +8,7 @@ import { Territory } from './components/Territory.js';
 import { Trail } from './components/Trail.js';
 import { InputHandler } from './utils/InputHandler.js';
 import { CameraControl } from './utils/CameraControl.js';
+import { DisabledButtons } from './utils/DisabledButtons.js';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js';
 
 const startEngine = () => {
@@ -18,23 +19,15 @@ const startEngine = () => {
         zoom: 17,
         pitch: 60,
         antialias: true,
-        // ENABLE standard dragPan so the engine listens for mouse moves
-        dragPan: true,
-        dragRotate: true,
-        scrollZoom: true,
-        touchZoomRotate: false,
-        doubleClickZoom: false
+        interactive: true,
+        dragPan: false // Start disabled
     });
 
-    // THE FIX: Override the dragPan handler to ONLY trigger on Right Click (button 2)
-    // MapLibre's default 'dragPan' uses button 0. We replace the check.
-    const originalMouseDown = map.dragPan._onMouseDown;
-    map.dragPan._onMouseDown = function(e) {
-        if (e.originalEvent.button !== 2) return; // Ignore anything that isn't Right Click
-        return originalMouseDown.call(this, e);
-    };
-
     map.on('load', () => {
+        // High-level event interception
+        new DisabledButtons(map);
+        new CameraControl(map);
+
         const grid = new Grid(map, GAME_CONFIG.GRID_SIZE);
         const territoryManager = new TerritoryManager(grid);
         const playerStart = grid.lngLatToGrid(GAME_CONFIG.MAP_CENTER[0], GAME_CONFIG.MAP_CENTER[1]);
@@ -50,9 +43,6 @@ const startEngine = () => {
 
         const allEntities = [player, ...bots];
         let territoryEffect;
-
-        // Initialize WASD Controls
-        new CameraControl(map);
 
         const gameLayer = {
             id: 'game-layer',
@@ -71,8 +61,7 @@ const startEngine = () => {
                 territoryEffect = new Territory(this.scene, grid);
             },
             render: function(gl, matrix) {
-                const m = new THREE.Matrix4().fromArray(matrix);
-                this.camera.projectionMatrix = m;
+                this.camera.projectionMatrix = new THREE.Matrix4().fromArray(matrix);
                 if (territoryEffect) territoryEffect.update();
                 this.renderer.resetState();
                 this.renderer.render(this.scene, this.camera);
@@ -81,7 +70,9 @@ const startEngine = () => {
         };
 
         map.addLayer(gameLayer);
+        // This still gets the click because it's its own listener
         new InputHandler(map, grid, player, territoryManager);
+        
         const gameLoop = new GameLoop(territoryManager, [player], bots);
         gameLoop.start();
 
