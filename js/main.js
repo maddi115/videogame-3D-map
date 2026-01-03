@@ -16,7 +16,16 @@ const startEngine = () => {
         center: GAME_CONFIG.MAP_CENTER,
         zoom: 17,
         pitch: 60,
-        antialias: true
+        antialias: true,
+        // DISABLE Panning and Dragging
+        dragPan: false,
+        dragRotate: false,
+        touchZoomRotate: false,
+        doubleClickZoom: false,
+        boxZoom: false,
+        // KEEP Scroll Zoom
+        scrollZoom: true,
+        interactive: true // Must be true for scrollZoom handler to stay active
     });
 
     map.on('load', () => {
@@ -53,9 +62,7 @@ const startEngine = () => {
                 territoryEffect = new Territory(this.scene, grid);
             },
             render: function(gl, matrix) {
-                // THE GOLDEN FIX: 
-                // We use a ProjectionMatrix that matches the map EXACTLY.
-                // No translation or rotation is done in Three.js; it's all done by the map's matrix.
+                // FIXED ANCHOR: Sync Three.js with Map Projection
                 const m = new THREE.Matrix4().fromArray(matrix);
                 this.camera.projectionMatrix = m;
                 
