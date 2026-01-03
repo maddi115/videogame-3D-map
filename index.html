@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Engine - Modular</title>
+    <script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="ui">
+        <h1>CORE_ENGINE</h1>
+        
+        <h2>WORLD_STATE</h2>
+        <div class="ctrl-group">
+            <label>City Color</label>
+            <input type="color" id="cityColor" value="#5C6A73">
+        </div>
+        <div class="ctrl-group">
+            <label>Sun Orbit</label>
+            <input type="range" id="sunAzimuth" min="0" max="360" value="210">
+        </div>
+
+        <h2>ENTITY_GEOMETRY</h2>
+        <div class="ctrl-group">
+            <label>Entity Scale</label>
+            <input type="range" id="pScale" min="40" max="350" value="130">
+        </div>
+        <div class="ctrl-group">
+            <label>Entity Height</label>
+            <input type="range" id="pHeight" min="10" max="250" value="60">
+        </div>
+    </div>
+    <div id="map"></div>
+    <div id="labelContainer"></div>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
