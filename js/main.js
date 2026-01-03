@@ -1,16 +1,21 @@
-import { MatrixAnchorBridge } from "./utils/MatrixAnchorBridge.js";
 import { GAME_CONFIG } from './utils/Config.js';
 import { Player } from './components/Player.js';
 import { Bot } from './components/Bot.js';
 import { Grid } from './core/Grid.js';
 import { TerritoryManager } from './core/TerritoryManager.js';
 import { GameLoop } from './core/GameLoop.js';
-import { Territory } from './components/Territory.js';
-import { Trail } from './components/Trail.js';
 import { InputHandler } from './utils/InputHandler.js';
 import { CameraControl } from './utils/CameraControl.js';
-import { DisabledButtons } from './utils/DisabledButtons.js';
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js';
+
+// Modular Managers
+import { GameStateOrchestrator } from './core/engine/GameStateOrchestrator.js';
+import { LayerFactory } from './map/LayerFactory.js';
+
+// Modular Disablers
+import { disableDoubleClickZoom } from './utils/disabled/NoDoubleClickZoom.js';
+import { disableBoxZoom } from './utils/disabled/NoBoxZoom.js';
+import { disableKeyboardRotation } from './utils/disabled/NoKeyboardRotation.js';
+import { disableLeftClickPan } from './utils/disabled/NoLeftClickPan.js';
 
 const startEngine = () => {
     const map = new maplibregl.Map({
@@ -23,12 +28,19 @@ const startEngine = () => {
     });
 
     map.on('load', () => {
-        new DisabledButtons(map);
+        // Setup Interactions
+        disableDoubleClickZoom(map);
+        disableBoxZoom(map);
+        disableKeyboardRotation(map);
+        disableLeftClickPan(map);
+        map.dragRotate.enable();
         new CameraControl(map);
 
+        // Core Systems
         const grid = new Grid(map, GAME_CONFIG.GRID_SIZE);
         const territoryManager = new TerritoryManager(grid);
-        
+
+        // Entity Setup
         const playerStart = grid.lngLatToGrid(GAME_CONFIG.MAP_CENTER[0], GAME_CONFIG.MAP_CENTER[1]);
         const player = new Player(0, 'PLAYER', 0x64B5F6, playerStart.x, playerStart.y);
         territoryManager.initializeTerritory(playerStart.x, playerStart.y, player.id, 1);
@@ -40,55 +52,15 @@ const startEngine = () => {
             return bot;
         });
 
-        let territoryEffect, trailEffect;
+        // Initialize Specialized Managers
+        const orchestrator = new GameStateOrchestrator(territoryManager, player, bots, grid);
+        orchestrator.startHeartbeat(100);
 
-        const gameLayer = {
-            id: 'game-layer',
-            type: 'custom',
-            renderingMode: '3d',
-            onAdd: function(map, gl) {
-                this.camera = new THREE.Camera();
-                this.scene = new THREE.Scene();
-                this.scene.clear();
-                while(this.scene.children.length > 0){ this.scene.remove(this.scene.children[0]); }
-                this.renderer = new THREE.WebGLRenderer({
-                    canvas: map.getCanvas(),
-                    context: gl,
-                    antialias: true
-                });
-                this.renderer.autoClear = false;
-                
-                // Lights
-                const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
-                this.scene.add(ambientLight);
-                
-                // Only initialize actual game components
-                territoryEffect = new Territory(this.scene, grid);
-                trailEffect = new Trail(this.scene, grid);
-            },
-            render: function(gl, matrix) {
-                MatrixAnchorBridge.syncView(this.camera, matrix);
-                if (territoryEffect) territoryEffect.update();
-                if (trailEffect) trailEffect.update(map, [player, ...bots]);
-                
-                this.renderer.resetState();
-                this.renderer.render(this.scene, this.camera);
-                map.triggerRepaint();
-            }
-        };
-
+        const gameLayer = LayerFactory.createGameLayer(grid, player, bots);
         map.addLayer(gameLayer);
+
         new InputHandler(map, grid, player, territoryManager);
         new GameLoop(territoryManager, [player], bots).start();
-
-        setInterval(() => {
-            bots.forEach(bot => {
-                bot.update(grid, territoryManager);
-                if (!bot.isExpanding() && bot.getTrail().length > 0) {
-                    territoryManager.captureTerritory(bot.endExpansion(), bot.id);
-                }
-            });
-        }, 200);
     });
 };
 startEngine();
