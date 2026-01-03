@@ -1,3 +1,4 @@
+import { MatrixAnchorBridge } from "../utils/MatrixAnchorBridge.js";
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js';
 
 export class Territory {

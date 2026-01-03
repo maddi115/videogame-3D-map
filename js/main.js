@@ -1,3 +1,4 @@
+import { MatrixAnchorBridge } from "./utils/MatrixAnchorBridge.js";
 import { GAME_CONFIG } from './utils/Config.js';
 import { Player } from './components/Player.js';
 import { Bot } from './components/Bot.js';
@@ -66,7 +67,7 @@ const startEngine = () => {
                 trailEffect = new Trail(this.scene, grid);
             },
             render: function(gl, matrix) {
-                this.camera.projectionMatrix = new THREE.Matrix4().fromArray(matrix);
+                MatrixAnchorBridge.syncView(this.camera, matrix);
                 if (territoryEffect) territoryEffect.update();
                 if (trailEffect) trailEffect.update(map, [player, ...bots]);
                 
