@@ -4,8 +4,10 @@ export class Player {
         this.name = name;
         this.color = color;
         this.expanding = false;
-        this.trailSet = new Set(); // Use Set to prevent duplicates
+        this.trailSet = new Set();
         this.trailArray = [];
+        this.balance = 100;
+        this.alive = true;
     }
 
     startExpansion(cells) {

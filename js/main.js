@@ -1,7 +1,7 @@
 import { GAME_CONFIG } from './utils/Config.js';
 import { Player } from './components/Player.js';
 import { Bot } from './components/Bot.js';
-import { Grid } from './core/Grid.js';
+import { Grid } from './grid/Grid.js';
 import { TerritoryManager } from './core/TerritoryManager.js';
 import { GameLoop } from './core/GameLoop.js';
 import { InputHandler } from './utils/InputHandler.js';
@@ -11,6 +11,7 @@ import { CameraControl } from './utils/CameraControl.js';
 import { GameStateOrchestrator } from './core/engine/GameStateOrchestrator.js';
 import { LayerFactory } from './map/LayerFactory.js';
 import { RenderLoop } from './rendering/RenderLoop.js';
+import { StatsCoordinator } from './game_ui/StatsCoordinator.js';
 
 // Modular Disablers
 import { disableDoubleClickZoom } from './utils/disabled/NoDoubleClickZoom.js';
@@ -66,6 +67,10 @@ const startEngine = () => {
         // Start continuous rendering
         const renderLoop = new RenderLoop(map, 60);
         renderLoop.start();
+
+        // Start UI updates
+        const statsCoordinator = new StatsCoordinator(player, territoryManager);
+        statsCoordinator.start(100);
     });
 };
 startEngine();
