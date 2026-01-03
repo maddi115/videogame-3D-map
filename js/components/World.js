@@ -5,7 +5,6 @@ export class World {
     }
 
     init() {
-        // Apply Noir Protocol to streets
         const layers = this.map.getStyle().layers;
         layers.forEach(layer => {
             if (layer.id.includes('road') || layer.id.includes('highway') || layer.id.includes('street')) {
@@ -15,7 +14,6 @@ export class World {
             }
         });
 
-        // Add Landmark Buildings
         this.map.addLayer({
             id: '3d-buildings',
             source: 'carto',

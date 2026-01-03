@@ -1,64 +1,85 @@
-import { ENGINE_CONFIG } from './utils/Config.js';
-import { World } from './components/World.js';
-import { PlayerEntity } from './components/Player.js';
+import { GAME_CONFIG } from './utils/Config.js';
+import { Player } from './components/Player.js';
+import { Bot } from './components/Bot.js';
+import { Grid } from './core/Grid.js';
+import { TerritoryManager } from './core/TerritoryManager.js';
+import { GameLoop } from './core/GameLoop.js';
+import { Territory } from './components/Territory.js';
+import { Trail } from './components/Trail.js';
+import { InputHandler } from './utils/InputHandler.js';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js';
 
 const startEngine = () => {
-    if (typeof maplibregl === 'undefined') {
-        console.error("Engine Error: MapLibre library not found. Retrying...");
-        setTimeout(startEngine, 100);
-        return;
-    }
-
     const map = new maplibregl.Map({
         container: 'map',
         style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-        center: [-118.27307, 34.01309],
-        zoom: 17, pitch: 70, antialias: true
+        center: GAME_CONFIG.MAP_CENTER,
+        zoom: 17,
+        pitch: 60,
+        antialias: true
     });
 
     map.on('load', () => {
-        const world = new World(map, ENGINE_CONFIG);
-        world.init();
+        const grid = new Grid(map, GAME_CONFIG.GRID_SIZE);
+        const territoryManager = new TerritoryManager(grid);
+        const playerStart = grid.lngLatToGrid(GAME_CONFIG.MAP_CENTER[0], GAME_CONFIG.MAP_CENTER[1]);
+        const player = new Player(0, 'PLAYER', 0x4A90E2, playerStart.x, playerStart.y);
+        
+        territoryManager.initializeTerritory(playerStart.x, playerStart.y, player.id, 7);
+        const bots = GAME_CONFIG.BOT_SPAWNS.map((offset, i) => {
+            const botStart = { x: playerStart.x + offset.x, y: playerStart.y + offset.y };
+            const bot = new Bot(i + 1, `BOT_${i + 1}`, GAME_CONFIG.BOT_COLORS[i], botStart.x, botStart.y);
+            territoryManager.initializeTerritory(botStart.x, botStart.y, bot.id, 7);
+            return bot;
+        });
 
-        const playerInstances = [];
-        const entityLayer = {
-            id: 'entity-layer', type: 'custom', renderingMode: '3d',
+        const allEntities = [player, ...bots];
+        let territoryEffect;
+
+        const gameLayer = {
+            id: 'game-layer',
+            type: 'custom',
+            renderingMode: '3d',
             onAdd: function(map, gl) {
-                this.renderer = new THREE.WebGLRenderer({ canvas: map.getCanvas(), context: gl, antialias: true });
-                this.renderer.autoClear = false;
-                this.scene = new THREE.Scene();
                 this.camera = new THREE.Camera();
-                this.scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-                
-                const loader = new THREE.TextureLoader();
-                loader.setCrossOrigin('anonymous');
-                
-                ENGINE_CONFIG.PLAYERS.forEach(p => {
-                    playerInstances.push(new PlayerEntity(p, this.scene, loader));
+                this.scene = new THREE.Scene();
+                this.renderer = new THREE.WebGLRenderer({
+                    canvas: map.getCanvas(),
+                    context: gl,
+                    antialias: true
                 });
+                this.renderer.autoClear = false;
+                this.scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+                territoryEffect = new Territory(this.scene, grid);
             },
             render: function(gl, matrix) {
-                this.camera.projectionMatrix = new THREE.Matrix4().fromArray(matrix);
-                const scale = document.getElementById('pScale').value;
-                const height = document.getElementById('pHeight').value;
+                // THE GOLDEN FIX: 
+                // We use a ProjectionMatrix that matches the map EXACTLY.
+                // No translation or rotation is done in Three.js; it's all done by the map's matrix.
+                const m = new THREE.Matrix4().fromArray(matrix);
+                this.camera.projectionMatrix = m;
                 
-                playerInstances.forEach(p => p.update(map, scale, height, 0.69));
-                
+                if (territoryEffect) territoryEffect.update();
+
                 this.renderer.resetState();
                 this.renderer.render(this.scene, this.camera);
                 map.triggerRepaint();
             }
         };
 
-        map.addLayer(entityLayer);
+        map.addLayer(gameLayer);
+        new InputHandler(map, grid, player, territoryManager);
+        const gameLoop = new GameLoop(territoryManager, [player], bots);
+        gameLoop.start();
 
-        document.getElementById('cityColor').addEventListener('input', (e) => world.updateBuildingColor(e.target.value));
-        document.getElementById('sunAzimuth').addEventListener('input', (e) => {
-            map.setLight({ position: [1.5, parseInt(e.target.value), 40] });
-        });
+        setInterval(() => {
+            bots.forEach(bot => {
+                bot.update(grid, territoryManager);
+                if (!bot.isExpanding() && bot.getTrail().length > 0) {
+                    territoryManager.captureTerritory(bot.endExpansion(), bot.id);
+                }
+            });
+        }, 200);
     });
 };
-
-// Boot the system
 startEngine();

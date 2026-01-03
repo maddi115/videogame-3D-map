@@ -1,32 +1,49 @@
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js';
-
-export class PlayerEntity {
-    constructor(data, scene, loader) {
-        this.data = data;
-        const mat = data.texture 
-            ? new THREE.MeshBasicMaterial({ map: loader.load(data.texture), transparent: true, opacity: 0.9, side: THREE.FrontSide, depthWrite: true })
-            : new THREE.MeshBasicMaterial({ color: 0x0077ff, transparent: true, opacity: 0.69, side: THREE.FrontSide });
-        
-        this.mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat);
-        scene.add(this.mesh);
-        
-        this.label = document.createElement("div");
-        this.label.className = "player-label";
-        this.label.innerText = data.id;
-        document.getElementById('labelContainer').appendChild(this.label);
+export class Player {
+    constructor(id, name, color, startX, startY) {
+        this.id = id;
+        this.name = name;
+        this.color = color;
+        this.balance = 100;
+        this.alive = true;
+        this.expanding = false;
+        this.trail = [];
+        this.startPos = { x: startX, y: startY };
+        this.currentPos = { x: startX, y: startY };
     }
 
-    update(map, scale, height, opacity) {
-        const c = maplibregl.MercatorCoordinate.fromLngLat([this.data.lng, this.data.lat], 0);
-        const s = c.meterInMercatorCoordinateUnits();
-        const targetH = this.data.state * height * s;
-        
-        this.mesh.scale.set(scale * s, scale * s, targetH);
-        this.mesh.position.set(c.x, c.y, c.z + (targetH / 2));
-        this.mesh.material.opacity = opacity;
+    startExpansion(x, y) {
+        this.expanding = true;
+        this.trail = [{ x, y }];
+        this.currentPos = { x, y };
+    }
 
-        const pos = map.project([this.data.lng, this.data.lat]);
-        this.label.style.left = `${pos.x}px`;
-        this.label.style.top = `${pos.y - 30}px`;
+    continueExpansion(x, y) {
+        if (!this.expanding) return;
+        const last = this.trail[this.trail.length - 1];
+        if (last.x !== x || last.y !== y) {
+            this.trail.push({ x, y });
+            this.currentPos = { x, y };
+        }
+    }
+
+    endExpansion() {
+        this.expanding = false;
+        const trail = [...this.trail];
+        this.trail = [];
+        return trail;
+    }
+
+    die() {
+        this.alive = false;
+        this.expanding = false;
+        this.trail = [];
+    }
+
+    getTrail() {
+        return this.trail;
+    }
+
+    isExpanding() {
+        return this.expanding;
     }
 }
