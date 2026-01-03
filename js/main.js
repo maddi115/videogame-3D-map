@@ -7,6 +7,7 @@ import { GameLoop } from './core/GameLoop.js';
 import { Territory } from './components/Territory.js';
 import { Trail } from './components/Trail.js';
 import { InputHandler } from './utils/InputHandler.js';
+import { CameraControl } from './utils/CameraControl.js';
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js';
 
 const startEngine = () => {
@@ -17,16 +18,21 @@ const startEngine = () => {
         zoom: 17,
         pitch: 60,
         antialias: true,
-        // DISABLE Panning and Dragging
-        dragPan: false,
-        dragRotate: false,
-        touchZoomRotate: false,
-        doubleClickZoom: false,
-        boxZoom: false,
-        // KEEP Scroll Zoom
+        // ENABLE standard dragPan so the engine listens for mouse moves
+        dragPan: true,
+        dragRotate: true,
         scrollZoom: true,
-        interactive: true // Must be true for scrollZoom handler to stay active
+        touchZoomRotate: false,
+        doubleClickZoom: false
     });
+
+    // THE FIX: Override the dragPan handler to ONLY trigger on Right Click (button 2)
+    // MapLibre's default 'dragPan' uses button 0. We replace the check.
+    const originalMouseDown = map.dragPan._onMouseDown;
+    map.dragPan._onMouseDown = function(e) {
+        if (e.originalEvent.button !== 2) return; // Ignore anything that isn't Right Click
+        return originalMouseDown.call(this, e);
+    };
 
     map.on('load', () => {
         const grid = new Grid(map, GAME_CONFIG.GRID_SIZE);
@@ -45,6 +51,9 @@ const startEngine = () => {
         const allEntities = [player, ...bots];
         let territoryEffect;
 
+        // Initialize WASD Controls
+        new CameraControl(map);
+
         const gameLayer = {
             id: 'game-layer',
             type: 'custom',
@@ -62,12 +71,9 @@ const startEngine = () => {
                 territoryEffect = new Territory(this.scene, grid);
             },
             render: function(gl, matrix) {
-                // FIXED ANCHOR: Sync Three.js with Map Projection
                 const m = new THREE.Matrix4().fromArray(matrix);
                 this.camera.projectionMatrix = m;
-                
                 if (territoryEffect) territoryEffect.update();
-
                 this.renderer.resetState();
                 this.renderer.render(this.scene, this.camera);
                 map.triggerRepaint();
