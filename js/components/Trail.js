@@ -24,7 +24,11 @@ export class Trail {
             if (!mesh || mesh.count !== trail.length) {
                 if (mesh) { this.scene.remove(mesh); mesh.dispose(); }
                 const geometry = new THREE.BoxGeometry(1, 1, 1);
-                const material = new THREE.MeshBasicMaterial({ color: entity.color, transparent: true, opacity: 0.5 });
+                const material = new THREE.MeshPhongMaterial({ 
+                    color: entity.color, 
+                    transparent: true, 
+                    opacity: 0.7 
+                });
                 mesh = new THREE.InstancedMesh(geometry, material, trail.length);
                 this.scene.add(mesh);
                 this.meshes.set(entity.id, mesh);
@@ -35,7 +39,8 @@ export class Trail {
                 const { lng, lat } = this.grid.gridToLngLat(point.x, point.y);
                 const merc = maplibregl.MercatorCoordinate.fromLngLat([lng, lat], 0);
                 const scale = merc.meterInMercatorCoordinateUnits() * this.grid.cellSizeMeters;
-                const height = 10 * scale;
+                const height = 20 * scale; // Trail is slightly taller to show "activity"
+                
                 dummy.position.set(merc.x, merc.y, merc.z + height / 2);
                 dummy.scale.set(scale, scale, height);
                 dummy.updateMatrix();

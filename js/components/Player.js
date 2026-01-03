@@ -3,47 +3,35 @@ export class Player {
         this.id = id;
         this.name = name;
         this.color = color;
-        this.balance = 100;
-        this.alive = true;
         this.expanding = false;
-        this.trail = [];
-        this.startPos = { x: startX, y: startY };
-        this.currentPos = { x: startX, y: startY };
+        this.trailSet = new Set(); // Use Set to prevent duplicates
+        this.trailArray = [];
     }
 
-    startExpansion(x, y) {
+    startExpansion(cells) {
         this.expanding = true;
-        this.trail = [{ x, y }];
-        this.currentPos = { x, y };
+        this.trailSet.clear();
+        this.addCellsToTrail(cells);
     }
 
-    continueExpansion(x, y) {
-        if (!this.expanding) return;
-        const last = this.trail[this.trail.length - 1];
-        if (last.x !== x || last.y !== y) {
-            this.trail.push({ x, y });
-            this.currentPos = { x, y };
-        }
+    addCellsToTrail(cells) {
+        cells.forEach(c => {
+            const key = `${c.x},${c.y}`;
+            if (!this.trailSet.has(key)) {
+                this.trailSet.add(key);
+                this.trailArray.push(c);
+            }
+        });
     }
 
     endExpansion() {
         this.expanding = false;
-        const trail = [...this.trail];
-        this.trail = [];
-        return trail;
+        const finalTrail = [...this.trailArray];
+        this.trailArray = [];
+        this.trailSet.clear();
+        return finalTrail;
     }
 
-    die() {
-        this.alive = false;
-        this.expanding = false;
-        this.trail = [];
-    }
-
-    getTrail() {
-        return this.trail;
-    }
-
-    isExpanding() {
-        return this.expanding;
-    }
+    getTrail() { return this.trailArray; }
+    isExpanding() { return this.expanding; }
 }

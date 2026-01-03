@@ -3,82 +3,51 @@ export class Grid {
         this.map = map;
         this.cellSizeMeters = cellSizeMeters;
         this.cells = new Map();
+        // LOCK the grid origin to the initial center so it stays ANCHORED
+        this.origin = map.getCenter();
     }
 
     lngLatToGrid(lng, lat) {
         const metersPerDegree = 111320;
-        const centerLng = this.map.getCenter().lng;
-        const centerLat = this.map.getCenter().lat;
-        
-        const x = Math.floor(((lng - centerLng) * metersPerDegree * Math.cos(centerLat * Math.PI / 180)) / this.cellSizeMeters);
-        const y = Math.floor(((lat - centerLat) * metersPerDegree) / this.cellSizeMeters);
-        
+        const latRad = this.origin.lat * Math.PI / 180;
+        const x = Math.floor(((lng - this.origin.lng) * metersPerDegree * Math.cos(latRad)) / this.cellSizeMeters);
+        const y = Math.floor(((lat - this.origin.lat) * metersPerDegree) / this.cellSizeMeters);
         return { x, y };
     }
 
     gridToLngLat(x, y) {
         const metersPerDegree = 111320;
-        const centerLng = this.map.getCenter().lng;
-        const centerLat = this.map.getCenter().lat;
-        
-        const lng = centerLng + (x * this.cellSizeMeters) / (metersPerDegree * Math.cos(centerLat * Math.PI / 180));
-        const lat = centerLat + (y * this.cellSizeMeters) / metersPerDegree;
-        
+        const latRad = this.origin.lat * Math.PI / 180;
+        const lng = this.origin.lng + (x * this.cellSizeMeters) / (metersPerDegree * Math.cos(latRad));
+        const lat = this.origin.lat + (y * this.cellSizeMeters) / metersPerDegree;
         return { lng, lat };
     }
 
-    getCellKey(x, y) {
-        return `${x},${y}`;
+    getBrushCells(centerX, centerY, radius = 1) {
+        const cells = [];
+        for (let x = centerX - radius; x <= centerX + radius; x++) {
+            for (let y = centerY - radius; y <= centerY + radius; y++) {
+                cells.push({ x, y });
+            }
+        }
+        return cells;
     }
 
     getCell(x, y) {
-        const key = this.getCellKey(x, y);
-        if (!this.cells.has(key)) {
-            this.cells.set(key, { owner: null, balance: 0 });
-        }
+        const key = `${x},${y}`;
+        if (!this.cells.has(key)) this.cells.set(key, { owner: null });
         return this.cells.get(key);
     }
 
     setOwner(x, y, ownerId) {
+        const key = `${x},${y}`;
+        this.cells.set(key, { owner: ownerId });
+    }
+
+    isValidStart(x, y, ownerId) {
         const cell = this.getCell(x, y);
-        cell.owner = ownerId;
-    }
-
-    getVisibleCells() {
-        const bounds = this.map.getBounds();
-        const sw = this.lngLatToGrid(bounds.getWest(), bounds.getSouth());
-        const ne = this.lngLatToGrid(bounds.getEast(), bounds.getNorth());
-        
-        const visible = [];
-        for (let x = sw.x - 2; x <= ne.x + 2; x++) {
-            for (let y = sw.y - 2; y <= ne.y + 2; y++) {
-                const cell = this.getCell(x, y);
-                if (cell.owner !== null) {
-                    visible.push({ x, y, ...cell });
-                }
-            }
-        }
-        return visible;
-    }
-
-    getOwnedCells(ownerId) {
-        const owned = [];
-        this.cells.forEach((cell, key) => {
-            if (cell.owner === ownerId) {
-                const [x, y] = key.split(',').map(Number);
-                owned.push({ x, y });
-            }
-        });
-        return owned;
-    }
-
-    isAdjacentToOwned(x, y, ownerId) {
-        const neighbors = [
-            [x-1, y], [x+1, y], [x, y-1], [x, y+1]
-        ];
-        return neighbors.some(([nx, ny]) => {
-            const cell = this.getCell(nx, ny);
-            return cell.owner === ownerId;
-        });
+        if (cell.owner === ownerId) return true;
+        const neighbors = [[x-1,y],[x+1,y],[x,y-1],[x,y+1]];
+        return neighbors.some(([nx, ny]) => this.getCell(nx, ny).owner === ownerId);
     }
 }

@@ -28,10 +28,11 @@ export class Territory {
             }
             if (newCellData.length > 0) {
                 const geometry = new THREE.BoxGeometry(1, 1, 1);
-                const material = new THREE.MeshLambertMaterial({ transparent: true, opacity: 0.8 });
+                // Use MeshPhongMaterial for better light reflection on bulky surfaces
+                const material = new THREE.MeshPhongMaterial({ transparent: true, opacity: 0.9 });
                 this.instancedMesh = new THREE.InstancedMesh(geometry, material, newCellData.length);
                 this.container.add(this.instancedMesh);
-                
+
                 const dummy = new THREE.Object3D();
                 const color = new THREE.Color();
 
@@ -39,14 +40,16 @@ export class Territory {
                     const { lng, lat } = this.grid.gridToLngLat(cell.x, cell.y);
                     const merc = maplibregl.MercatorCoordinate.fromLngLat([lng, lat], 0);
                     const scale = merc.meterInMercatorCoordinateUnits() * this.grid.cellSizeMeters;
-                    const height = 5 * scale; // Very flat for better anchoring
+                    
+                    // BULKY HEIGHT: Increased height so they look like monoliths
+                    const height = 40 * scale; 
 
-                    // We set positions once. The matrix in main.js handles the "sticking"
                     dummy.position.set(merc.x, merc.y, merc.z + height / 2);
-                    dummy.scale.set(scale * 0.95, scale * 0.95, height);
+                    // NO GAPS: scale is exactly 1.0 so they touch edges
+                    dummy.scale.set(scale, scale, height);
                     dummy.updateMatrix();
                     this.instancedMesh.setMatrixAt(i, dummy.matrix);
-                    
+
                     color.set(this.colors[cell.owner]);
                     this.instancedMesh.setColorAt(i, color);
                 });

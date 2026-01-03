@@ -12,49 +12,53 @@ export class InputHandler {
     setupListeners() {
         const canvas = this.map.getCanvas();
         canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
-        canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
-        canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
-        canvas.addEventListener('mouseleave', (e) => this.onMouseUp(e));
+        window.addEventListener('mousemove', (e) => this.onMouseMove(e));
+        window.addEventListener('mouseup', (e) => this.onMouseUp(e));
     }
 
     onMouseDown(e) {
+        if (e.button !== 0) return; // Only left click for expansion
         const lngLat = this.map.unproject([e.clientX, e.clientY]);
-        const gridPos = this.grid.lngLatToGrid(lngLat.lng, lngLat.lat);
+        const pos = this.grid.lngLatToGrid(lngLat.lng, lngLat.lat);
 
-        if (this.territoryManager.isValidStart(gridPos.x, gridPos.y, this.player.id)) {
+        if (this.grid.isValidStart(pos.x, pos.y, this.player.id)) {
             this.mouseDown = true;
-            this.player.startExpansion(gridPos.x, gridPos.y);
-            this.lastGridPos = gridPos;
-            this.map.dragPan.disable();
+            this.lastGridPos = pos;
+            const brush = this.grid.getBrushCells(pos.x, pos.y, 2); // 3x3 Brush
+            this.player.startExpansion(brush);
         }
     }
 
     onMouseMove(e) {
         if (!this.mouseDown || !this.player.isExpanding()) return;
-
         const lngLat = this.map.unproject([e.clientX, e.clientY]);
-        const gridPos = this.grid.lngLatToGrid(lngLat.lng, lngLat.lat);
+        const pos = this.grid.lngLatToGrid(lngLat.lng, lngLat.lat);
 
-        if (!this.lastGridPos || gridPos.x !== this.lastGridPos.x || gridPos.y !== this.lastGridPos.y) {
-            this.player.continueExpansion(gridPos.x, gridPos.y);
-            this.lastGridPos = gridPos;
+        if (this.lastGridPos && (pos.x !== this.lastGridPos.x || pos.y !== this.lastGridPos.y)) {
+            // INTERPOLATION: Fill gaps if mouse moves fast
+            const dist = Math.max(Math.abs(pos.x - this.lastGridPos.x), Math.abs(pos.y - this.lastGridPos.y));
+            for (let i = 1; i <= dist; i++) {
+                const interX = Math.round(this.lastGridPos.x + (pos.x - this.lastGridPos.x) * (i / dist));
+                const interY = Math.round(this.lastGridPos.y + (pos.y - this.lastGridPos.y) * (i / dist));
+                const brush = this.grid.getBrushCells(interX, interY, 2);
+                this.player.addCellsToTrail(brush);
+            }
+            this.lastGridPos = pos;
         }
     }
 
     onMouseUp(e) {
         if (!this.mouseDown) return;
-
         this.mouseDown = false;
-        this.map.dragPan.enable();
-
         if (this.player.isExpanding()) {
             const trail = this.player.endExpansion();
-            const endPos = trail[trail.length - 1];
-            if (this.territoryManager.isValidStart(endPos.x, endPos.y, this.player.id)) {
-                this.territoryManager.captureTerritory(trail, this.player.id);
+            if (trail.length > 0) {
+                const last = trail[trail.length - 1];
+                if (this.grid.isValidStart(last.x, last.y, this.player.id)) {
+                    this.territoryManager.captureTerritory(trail, this.player.id);
+                }
             }
         }
-
         this.lastGridPos = null;
     }
 }
